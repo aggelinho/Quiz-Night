@@ -1,0 +1,6 @@
+SELECT ?iso ?curLabel ?hpLabel ?elev WHERE {
+  ?c wdt:P297 ?iso .
+  OPTIONAL { ?c wdt:P38 ?cur . }
+  OPTIONAL { ?c wdt:P610 ?hp . OPTIONAL { ?hp wdt:P2044 ?elev . } }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "el". }
+}

@@ -1,0 +1,6 @@
+SELECT ?iso ?countryLabel ?capLabel ?pop WHERE {
+  ?c wdt:P297 ?iso .
+  OPTIONAL { ?c wdt:P36 ?cap . }
+  OPTIONAL { ?c p:P1082 ?ps . ?ps ps:P1082 ?pop . ?ps wikibase:rank wikibase:PreferredRank . }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "el,en". }
+}
