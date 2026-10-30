@@ -7,39 +7,66 @@
   <meta name="description" content="Ποδοσφαιρικό, μπασκετικό και γεωγραφικό quiz. Παίξε με φίλο, με τον υπολογιστή ή online.">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="home">
+  <header class="appbar">
+    <div class="wrap appbar-in">
+      <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">QN</span><span>Quiz Night</span></a>
+      <nav class="appnav" aria-label="Quiz">
+        <a href="play.html?quiz=football">Quizball</a>
+        <a href="play.html?quiz=basketball">Crunch Time</a>
+        <a href="play.html?quiz=geo">Γεωγραφία</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="wrap">
+      <h1>Το quiz της παρέας</h1>
+      <p>Ποδόσφαιρο, μπάσκετ και γεωγραφία. Παίξε απέναντι στον υπολογιστή, με φίλο στην ίδια συσκευή ή online με κωδικό δωματίου.</p>
+    </div>
+  </section>
+
   <main class="wrap">
-    <header class="hub-head">
-      <h1>Quiz Night</h1>
-      <p>Διάλεξε quiz. Παίξε απέναντι στον υπολογιστή, με φίλο στην ίδια συσκευή ή online με κωδικό δωματίου.</p>
-    </header>
     <section class="shows" aria-label="Διαθέσιμα quiz">
-      <a class="show football" href="play.html?quiz=football">
-        <div>
+      <a class="show" data-quiz="football" href="play.html?quiz=football">
+        <div class="show-art art-pitch" aria-hidden="true"></div>
+        <div class="show-body">
           <h2>Quizball</h2>
-          <p>Ποδόσφαιρο. Διαλέγετε 8 από 12 κατηγορίες: Player ID, Club Combo, Top 5, Guess The Score, Nations XI και άλλες. Γράφεις ή λες την απάντηση.</p>
+          <p>Ποδοσφαιρικό quiz. Διαλέγετε 8 από 12 κατηγορίες και απαντάτε γράφοντας ή με τη φωνή.</p>
+          <ul class="facts"><li>12 κατηγορίες</li><li>16–20 ερωτήσεις</li><li>Χωρίς χρονόμετρο</li></ul>
+          <span class="show-cta">Παίξε Quizball</span>
         </div>
-        <span class="play">Παίξε</span>
-        <span class="court-mark" aria-hidden="true"></span>
       </a>
-      <a class="show basketball" href="play.html?quiz=basketball">
-        <div>
+      <a class="show" data-quiz="basketball" href="play.html?quiz=basketball">
+        <div class="show-art art-court" aria-hidden="true"></div>
+        <div class="show-body">
           <h2>Crunch Time</h2>
-          <p>Μπάσκετ. 4 περίοδοι, και σε κάθε επίθεση διαλέγεις βολή, δίποντο ή τρίποντο.</p>
+          <p>Μπασκετικό quiz σε 4 περιόδους. Σε κάθε επίθεση διαλέγεις βολή, δίποντο ή τρίποντο.</p>
+          <ul class="facts"><li>4 περίοδοι</li><li>Shot clock 24″</li><li>Παράταση στην ισοπαλία</li></ul>
+          <span class="show-cta">Παίξε Crunch Time</span>
         </div>
-        <span class="play">Παίξε</span>
-        <span class="court-mark" aria-hidden="true"></span>
       </a>
-      <a class="show geo" href="play.html?quiz=geo">
-        <div>
+      <a class="show" data-quiz="geo" href="play.html?quiz=geo">
+        <div class="show-art art-globe" aria-hidden="true"></div>
+        <div class="show-body">
           <h2>Γεωγραφία</h2>
           <p>Σημαίες, χάρτες, πρωτεύουσες, γείτονες, πληθυσμός, νομίσματα, βουνά, ποτάμια και Ελλάδα.</p>
+          <ul class="facts"><li>12 κατηγορίες</li><li>197 χώρες</li><li>5–15 γύροι</li></ul>
+          <span class="show-cta">Παίξε Γεωγραφία</span>
         </div>
-        <span class="play">Παίξε</span>
-        <span class="court-mark" aria-hidden="true"></span>
       </a>
     </section>
-    <p class="soon">Έρχονται κι άλλα quiz.</p>
+
+    <section class="how" aria-labelledby="how-title">
+      <h2 id="how-title">Πώς παίζεται</h2>
+      <ol class="steps">
+        <li><strong>Διάλεξε quiz</strong><span>Κάθε quiz έχει τους δικούς του κανόνες και πόντους.</span></li>
+        <li><strong>Διάλεξε αντίπαλο</strong><span>Τον υπολογιστή, έναν φίλο δίπλα σου ή κάποιον online με κωδικό δωματίου.</span></li>
+        <li><strong>Παίξε εναλλάξ</strong><span>Οι παίκτες απαντούν με τη σειρά. Κερδίζει όποιος μαζέψει τους περισσότερους πόντους.</span></li>
+      </ol>
+    </section>
   </main>
+
+  <footer class="foot"><div class="wrap">Quiz Night · Δεδομένα ερωτήσεων από Wikipedia και Wikidata</div></footer>
 </body>
 </html>

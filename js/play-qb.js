@@ -39,7 +39,7 @@
   function draftHtml(s, mine) {
     const cats = CATS();
     const n = s.drafted.length;
-    return `<p class="turn">Επιλογή κατηγοριών (${n}/8). Σειρά: <strong>${esc(s.players[s.turn].name)}</strong>${mine ? '' : ' · περιμένουμε…'}</p>
+    return `<div class="turnbar"><p class="turn">Σειρά: <strong>${esc(s.players[s.turn].name)}</strong>${mine ? ' — διάλεξε μια κατηγορία' : ' — περιμένουμε…'}</p><span class="progress">${n} από 8 κατηγορίες</span></div>
       <div class="draft">${Object.entries(cats).map(([k, c]) => {
         const d = s.drafted.find((x) => x.cat === k);
         return `<button class="dcard ${d ? 'taken p' + d.by : ''}" data-draft="${k}" ${!d && mine ? '' : 'disabled'}>
@@ -57,7 +57,7 @@
   }
   function boardHtml(s, mine) {
     const left = s.board.reduce((n, c) => n + c.cells.filter((x) => x.by === null).length, 0);
-    return `<p class="turn">Σειρά έχει: <strong>${esc(s.players[s.turn].name)}</strong>${mine ? ' — διάλεξε ερώτηση' : ' · περιμένουμε…'} <span class="muted">(${left} ερωτήσεις ακόμα)</span></p>
+    return `<div class="turnbar"><p class="turn">Σειρά: <strong>${esc(s.players[s.turn].name)}</strong>${mine ? ' — διάλεξε ερώτηση' : ' — περιμένουμε…'}</p><span class="progress">${left} ερωτήσεις ακόμα</span></div>
       <div class="qbboard">${s.board.map((c, ci) => `<div class="qbcol">
         <div class="head"><span class="ic">${c.icon}</span>${esc(c.label)}</div>
         ${c.cells.map((x, ri) => x.by === null
@@ -142,10 +142,10 @@
         verdict = `<div class="verdict ${c.got ? 'ok' : 'no'}">${c.got ? `Σωστό! +${c.got} για ${name}` : 'Λάθος.'}</div><div class="explain">${given ? given + ' · ' : ''}Σωστή απάντηση: ${esc(q.reveal)}</div>`;
       }
       if (ctx.canApprove && c.got < c.max && !c.approved && q.kind !== 'top5') verdict += `<button class="btn ghost small" data-act="approve">Δεκτή η απάντηση (απόφαση αντιπάλου)</button>`;
-      verdict += `<div class="row" style="margin-top:14px"><button class="btn" data-act="next">Συνέχεια</button></div>`;
+      verdict += `<div class="row next-row"><button class="btn" data-act="next">Συνέχεια</button></div>`;
     }
     const ptsInfo = q.kind === 'text' ? ptsWord(c.diff) : `έως ${c.max} πόντοι`;
-    return `<div class="qcard"><div class="qmeta"><span>${cat.icon} ${esc(cat.label)} · ${DIFF[c.diff]}</span><span>${ptsInfo} · ${esc(s.players[s.turn].name)}</span></div>${body}${verdict}</div>`;
+    return `<div class="qcard"><div class="qmeta"><span class="tag">${cat.icon} ${esc(cat.label)}</span><span class="tag diff d${c.diff}">${DIFF[c.diff]}</span><span class="qmeta-r"><b>${ptsInfo}</b> για ${esc(s.players[s.turn].name)}</span></div>${body}${verdict}</div>`;
   }
 
   function render(s, ctx) {
