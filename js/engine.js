@@ -6,9 +6,8 @@
   // ---------- Ορισμοί quiz ----------
   const QUIZZES = {
     football: {
-      topic: 'football', title: 'Quizball', subtitle: 'Ποδοσφαιρικό quiz', format: 'board', timer: 30,
-      rules: 'Ταμπλό με 6 κατηγορίες και 3 ερωτήσεις η καθεμία (2, 3 και 4 πόντοι ανάλογα με τη δυσκολία). Οι παίκτες διαλέγουν ερώτηση εναλλάξ. Σωστή απάντηση = οι πόντοι της ερώτησης.',
-      boardCats: 6, boardPoints: [2, 3, 4],
+      topic: 'football', title: 'Quizball', subtitle: 'Ποδοσφαιρικό quiz', format: 'qb',
+      rules: 'Πριν ξεκινήσει το παιχνίδι, διαλέγετε εναλλάξ κατηγορίες μέχρι να γίνουν 8. Το ταμπλό έχει 16, 18 ή 20 ερωτήσεις: εύκολη = 1 πόντος, μέτρια = 2, δύσκολη = 3. Γράφεις ή λες την απάντηση, χωρίς χρονικό όριο.',
     },
     basketball: {
       topic: 'basketball', title: 'Crunch Time', subtitle: 'Μπασκετικό quiz', format: 'pick', timer: 24,
@@ -25,8 +24,9 @@
   };
 
   // ---------- Δημιουργία αρχικής κατάστασης ----------
-  function newGame(quizId, settings, names, rng) {
+  function newGame(quizId, settings, names, rng, cpu) {
     const Q = QUIZZES[quizId];
+    if (Q.format === 'qb') return window.QBFormat.newGame(quizId, settings, names, rng, cpu);
     const cats = (settings.cats && settings.cats.length ? settings.cats : Object.keys(T[Q.topic]));
     const st = {
       quiz: quizId, format: Q.format, cats, timer: Q.timer,
@@ -51,6 +51,7 @@
   // ---------- Reducer ----------
   // Επιστρέφει νέα κατάσταση ή null αν η ενέργεια δεν επιτρέπεται.
   function apply(prev, a, by, now, rng) {
+    if (prev.format === 'qb') return window.QBFormat.apply(prev, a, by, now, rng);
     const st = JSON.parse(JSON.stringify(prev));
     const Q = QUIZZES[st.quiz];
     if (st.phase === 'over') return null;
@@ -124,6 +125,7 @@
     hard: { acc: [0.94, 0.82, 0.66], bias: [0.2, 0.35, 0.45], delay: [1800, 4500] },
   };
   function aiAction(st, level, r) {
+    if (st.format === 'qb') return window.QBFormat.aiAction(st, level, r);
     const L = AI[level] || AI.medium;
     if (st.phase === 'choose') {
       const roll = r(); const diff = roll < L.bias[0] ? 1 : roll < L.bias[0] + L.bias[1] ? 2 : 3;
@@ -153,7 +155,7 @@
       this.online = online; this.onChange = onChange;
       this.rng = mulberry32((Math.random() * 2 ** 32) >>> 0);
       this.state = null; this.aiTimer = null;
-      if (mode !== 'guest') this.setState(newGame(quiz, this.settings, names, this.rng));
+      if (mode !== 'guest') this.setState(newGame(quiz, this.settings, names, this.rng, mode === 'cpu'));
       this.offs = [];
       if (mode === 'host') this.offs.push(online.onAction((by, a) => this.act(a, by, true)));
       if (mode === 'guest') this.offs.push(online.onState((s) => this.setState(s, true)));
@@ -164,7 +166,7 @@
     me() { return this.mode === 'cpu' || this.mode === 'host' ? 0 : this.mode === 'guest' ? 1 : null; }
     canAct() { const s = this.state; return s && s.phase !== 'over' && (this.me() === null || this.me() === s.turn); }
     act(a, by, remote) {
-      if (by === undefined) by = this.me() === null ? this.state.turn : this.me();
+      if (by === undefined || by === null) by = this.me() === null ? this.state.turn : this.me();
       if (this.mode === 'guest' && !remote) { this.online.sendAction(by, a); return; }
       const next = apply(this.state, a, by, this.now(), this.rng);
       if (next) this.setState(next);
@@ -184,17 +186,18 @@
     }
     scheduleAI() {
       const s = this.state;
-      if (this.mode !== 'cpu' || !s || s.turn !== 1 || !['choose', 'question'].includes(s.phase)) return;
-      const key = s.phase + s.history.length;
+      if (this.mode !== 'cpu' || !s || s.turn !== 1 || !['draft', 'choose', 'question'].includes(s.phase)) return;
+      const key = s.phase + s.history.length + ':' + (s.seq || 0);
       if (this.aiKey === key) return;
       this.aiKey = key;
       const L = AI[this.cpuLevel] || AI.medium;
-      const wait = s.phase === 'choose' ? 1200 : L.delay[0] + this.rng() * (L.delay[1] - L.delay[0]);
+      let wait = s.phase === 'choose' || s.phase === 'draft' ? 1200 : L.delay[0] + this.rng() * (L.delay[1] - L.delay[0]);
+      if (s.format === 'qb' && s.phase === 'question' && s.current.step) wait = 1500;
       clearTimeout(this.aiTimer);
       this.aiTimer = setTimeout(() => {
         const a = aiAction(this.state, this.cpuLevel, this.rng);
         if (a && this.state.turn === 1) this.act(a, 1);
-      }, Math.min(wait, (s.timer - 2) * 1000));
+      }, s.timer ? Math.min(wait, (s.timer - 2) * 1000) : wait);
     }
     destroy(keepRoom) { clearInterval(this.tick); clearTimeout(this.aiTimer); this.offs.forEach((f) => f()); if (this.online && !keepRoom) this.online.leave(); }
   }

@@ -18,7 +18,14 @@
   <script src="js/data/geo-extra.js"></script>
   <script src="js/data/football.js"></script>
   <script src="js/data/basketball.js"></script>
+  <script src="js/match.js"></script>
   <script src="js/questions.js"></script>
+  <script>
+    // Τα δεδομένα του Quizball (~2 MB) φορτώνονται μόνο για το ποδοσφαιρικό quiz
+    if ((new URLSearchParams(location.search).get('quiz') || 'football') === 'football') {
+      document.write('<script src="js/data/quizball.js"><\/script><script src="js/quizball.js"><\/script><script src="js/play-qb.js"><\/script>');
+    }
+  </script>
   <script src="js/engine.js"></script>
   <script src="js/online.js"></script>
   <script src="js/map.js"></script>

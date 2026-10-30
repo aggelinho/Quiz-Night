@@ -160,29 +160,6 @@
   }
   const countVals = (map, norm) => { const o = {}; Object.values(map).forEach((v) => { v = norm ? norm(v) : v; o[v] = (o[v] || 0) + 1; }); return o; };
 
-  // ---------- ΠΟΔΟΣΦΑΙΡΟ ----------
-  const F = window.FOOTBALL || {};
-  const wcWinners = Object.fromEntries(Object.entries(F.worldCup || {}).map(([y, v]) => [y, v[0]]));
-  const wcHosts = Object.fromEntries(Object.entries(F.worldCup || {}).map(([y, v]) => [y, v[1]]));
-  const football = {
-    careers: { label: 'Καριέρα', icon: '🧳', gen: (r, d) => careerQ(r, d, F.careers, 'fb') },
-    worldcup: { label: 'Μουντιάλ & Euro', icon: '🏆', gen(r, d) {
-      const t = r();
-      if (t < 0.45) return yearQ(r, d, wcWinners, 1998, 1970, 'wc-', (y) => `Ποια χώρα κατέκτησε το Μουντιάλ του ${y};`);
-      if (t < 0.7) return yearQ(r, d, wcHosts, 1998, 1970, 'wch-', (y) => `Ποια χώρα διοργάνωσε το Μουντιάλ του ${y};`);
-      return yearQ(r, d, F.euro, 2000, 1980, 'eu-', (y) => `Ποια χώρα κατέκτησε το Euro του ${y};`);
-    } },
-    ucl: { label: 'Champions League', icon: '⭐', gen: (r, d) => yearQ(r, d, F.championsLeague, 2005, 1985, 'ucl-', (y) => y >= 1993 ? `Ποια ομάδα κατέκτησε το Champions League το ${y};` : `Ποια ομάδα κατέκτησε το Κύπελλο Πρωταθλητριών το ${y};`) },
-    ballon: { label: 'Χρυσή Μπάλα', icon: '🥇', gen: (r, d) => yearQ(r, d, F.ballonDor, 2008, 1998, 'bd-', (y) => `Ποιος κέρδισε τη Χρυσή Μπάλα το ${y};`) },
-    stadiums: { label: 'Γήπεδα', icon: '🏟️', gen: (r, d) => pairQ(r, d, F.stadiums, 'st-', (s) => `Ποια ομάδα έχει (ή είχε) έδρα το γήπεδο «${s}»;`) },
-    nicknames: { label: 'Παρατσούκλια', icon: '🏷️', gen: (r, d) => pairQ(r, d, F.nicknames, 'nn-', (s) => `Ποια ομάδα είναι γνωστή ως «${s}»;`) },
-    more: { label: 'Ποιος έχει περισσότερα;', icon: '📊', gen(r, d) {
-      if (r() < 0.6) return moreQ(r, d, countVals(F.championsLeague), 'Ποια ομάδα έχει κατακτήσει τα περισσότερα Champions League / Κύπελλα Πρωταθλητριών (έως το 2025);', 'mucl-');
-      return moreQ(r, d, countVals(wcWinners, (v) => v.replace('Δυτική ', '')), 'Ποια χώρα έχει κατακτήσει τα περισσότερα Μουντιάλ (έως το 2022);', 'mwc-');
-    } },
-    greek: { label: 'Ιστορικές στιγμές', icon: '📜', gen: (r, d) => fixedQ(r, d, F.fixed, 'fbfx-') },
-  };
-
   // ---------- ΜΠΑΣΚΕΤ ----------
   const B = window.BASKETBALL || {};
   const basketball = {
@@ -232,7 +209,7 @@
     return null;
   }
 
-  const QUIZ_TOPICS = { geo, football, basketball };
+  const QUIZ_TOPICS = { geo, basketball };
   window.QUIZ_TOPICS = QUIZ_TOPICS;
   window.QZ = { mulberry32, shuffle, pick, generate };
 })();

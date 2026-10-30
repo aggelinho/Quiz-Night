@@ -3,7 +3,7 @@
   const params = new URLSearchParams(location.search);
   const quizId = window.QUIZZES[params.get('quiz')] ? params.get('quiz') : 'football';
   const Q = window.QUIZZES[quizId];
-  const TOPIC = window.QUIZ_TOPICS[Q.topic];
+  const TOPIC = window.QUIZ_TOPICS[Q.topic] || {};
   const app = document.getElementById('app');
   const roomTag = document.getElementById('roomTag');
   document.body.dataset.quiz = quizId;
@@ -124,9 +124,10 @@
 
   let lastKey = '';
   function render(s) {
-    const key = JSON.stringify([s.phase, s.turn, s.players, s.current && s.current.chosen, s.current && s.current.q && s.current.q.key]);
+    const key = s.format === 'qb' ? s.phase + ':' + s.seq : JSON.stringify([s.phase, s.turn, s.players, s.current && s.current.chosen, s.current && s.current.q && s.current.q.key]);
     if (key === lastKey) return; lastKey = key;
     if (s.phase === 'over') return renderOver(s);
+    if (s.format === 'qb') return renderQB(s);
     const mine = session.canAct();
     const who = esc(s.players[s.turn].name);
     let body = '';
@@ -140,13 +141,24 @@
     bind(s);
     tick();
   }
+  function renderQB(s) {
+    const me = session.me();
+    const cpuGame = s.players.some((p) => p.cpu);
+    const ctx = { mine: session.canAct(), canApprove: !cpuGame && (me === null || me !== s.turn) };
+    app.innerHTML = scoreboardHtml(s) + `<section class="stage">${window.QBView.render(s, ctx)}</section>`;
+    window.QBView.bind(app, s, (a) => {
+      if (a.type === 'approve' && session.mode === 'local') session.act(a, 1 - s.turn);
+      else session.act(a);
+    });
+  }
   function scoreboardHtml(s) {
     let sub = '';
-    if (s.format === 'board') { const left = s.board.reduce((n, c) => n + c.cells.filter((x) => x.by === null).length, 0); sub = `${left} ερωτήσεις ακόμα`; }
+    if (s.format === 'qb') sub = s.phase === 'draft' ? 'Επιλογή κατηγοριών' : s.board ? `${s.board.reduce((n, c) => n + c.cells.filter((x) => x.by === null).length, 0)} ερωτήσεις ακόμα` : '';
+    else if (s.format === 'board') { const left = s.board.reduce((n, c) => n + c.cells.filter((x) => x.by === null).length, 0); sub = `${left} ερωτήσεις ακόμα`; }
     else if (quizId === 'basketball') sub = s.period > s.periods ? `Παράταση ${s.ot}` : `${s.period}η περίοδος`;
     else sub = `Γύρος ${Math.min(Math.floor(s.count / 2) + 1, s.perPeriod)} από ${s.perPeriod}`;
     const plate = (i) => `<div class="plate ${i ? 'right' : ''} ${s.turn === i && s.phase !== 'over' ? 'active' : ''}"><span class="name">${esc(s.players[i].name)}</span><span class="score">${s.players[i].score}</span></div>`;
-    return `<div class="scoreboard">${plate(0)}<div class="clock"><span class="digits" id="clk">${s.phase === 'question' ? s.timer : '–'}</span><span class="sub">${sub}</span></div>${plate(1)}</div>`;
+    return `<div class="scoreboard">${plate(0)}<div class="clock"><span class="digits" id="clk">${s.phase === 'question' && s.timer ? s.timer : s.format === 'qb' ? '⚽' : '–'}</span><span class="sub">${sub}</span></div>${plate(1)}</div>`;
   }
   function boardHtml(s, mine) {
     return `<div class="board">${s.board.map((c, ci) => `<div class="col"><div class="head"><span class="ic">${c.icon}</span>${esc(c.label)}</div>
@@ -191,7 +203,7 @@
     if (mb && s.current) window.QuizMap.draw(mb, s.current.q.media);
   }
   function tick() {
-    const s = session && session.state; if (!s || s.phase !== 'question') return;
+    const s = session && session.state; if (!s || s.phase !== 'question' || !s.current.deadline) return;
     const left = Math.max(0, (s.current.deadline - session.now()) / 1000);
     const clk = document.getElementById('clk'); const bar = document.getElementById('tbar');
     if (clk) { clk.textContent = Math.ceil(left); clk.classList.toggle('low', left <= 5); }

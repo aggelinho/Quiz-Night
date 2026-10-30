@@ -2,7 +2,7 @@
 
 Στατική σελίδα (HTML/CSS/JS, χωρίς build) με τρία quiz:
 
-- **Quizball**: ποδόσφαιρο. Ταμπλό 6 κατηγοριών × 3 ερωτήσεις (2/3/4 πόντοι), οι παίκτες διαλέγουν εναλλάξ.
+- **Quizball**: ποδόσφαιρο. Οι παίκτες διαλέγουν εναλλάξ 8 από τις 12 κατηγορίες. Ταμπλό 16/18/20 ερωτήσεων (εύκολη 1, μέτρια 2, δύσκολη 3 πόντοι). Γραπτή ή φωνητική απάντηση, χωρίς χρόνο· όταν το σύστημα απορρίπτει μια απάντηση, ο αντίπαλος μπορεί να την κάνει δεκτή.
 - **Crunch Time**: μπάσκετ. 4 περίοδοι × 4 επιθέσεις ανά παίκτη. Βολή = 1 (εύκολη), δίποντο = 2 (μέτρια), τρίποντο = 3 (δύσκολη). Ισοπαλία → παράταση.
 - **Γεωγραφία**: σημαίες, χάρτες, πρωτεύουσες, γείτονες, πληθυσμός, έκταση, νομίσματα, βουνά, ποτάμια, ήπειροι, Ελλάδα.
 
@@ -61,6 +61,19 @@ tools/                script που ξαναχτίζει τα δεδομένα �
 Πώς δουλεύει: ο οικοδεσπότης κρατά το παιχνίδι και γράφει την κατάσταση στο `rooms/<code>/state`. Ο φιλοξενούμενος στέλνει τις κινήσεις του στο `rooms/<code>/actions`. Όταν φύγει ο οικοδεσπότης, το δωμάτιο σβήνεται αυτόματα.
 
 ## Ενημέρωση δεδομένων
+
+### Quizball (`js/data/quizball.js`)
+Παράγεται με scripts από Wikipedia/Wikidata (τρέχουν με Python 3, `pip install beautifulsoup4`):
+
+```
+python3 tools/fetch_finals.py    # τελικοί CL / Μουντιάλ / Euro / Europa / Conference
+python3 tools/parse_finals.py    # 11άδες, σκορ, σκόρερ, εθνικότητες
+python3 tools/fetch_people.py    # καριέρες παικτών & προπονητών (infobox) + Wikidata
+python3 tools/parse_people.py
+python3 tools/fetch_top5.py      # λίστες Top 5 από πίνακες Wikipedia
+python3 tools/build_qb.py        # γράφει το js/data/quizball.js
+```
+Τα scripts γράφουν ενδιάμεσα αρχεία στο `/tmp/qb/` (άλλαξέ το στην αρχή τους αν θες).
 
 - **Ποδόσφαιρο / μπάσκετ**: `js/data/football.js`, `js/data/basketball.js`. Πρόσθεσε νέες χρονιές (π.χ. νικητή Champions League 2026), παίκτες στο `careers` με δυσκολία `d: 1-3`, κ.λπ. Οι μετρήσεις «ποιος έχει περισσότερα» για Champions League και Μουντιάλ υπολογίζονται αυτόματα από τις λίστες νικητών· οι τίτλοι NBA/Euroleague στο `nbaTitles` / `euroleagueTitles` ενημερώνονται με το χέρι.
 - **Χώρες**: `js/data/geo-countries.js` παράγεται από το `tools/build_geo.js` (πακέτα npm `world-countries`, `i18n-iso-countries`, `world-atlas`, `country-json` + ερωτήματα Wikidata στο `tools/*.rq`).
