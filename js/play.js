@@ -20,7 +20,12 @@
     const online = window.Online.enabled;
     const catOpts = quizId === 'geo' ? Object.entries(TOPIC).map(([k, v]) => `<label class="cat"><input type="checkbox" name="cat" value="${k}" checked> ${v.icon} ${esc(v.label)}</label>`).join('') : '';
     let extra = '';
-    if (Q.format === 'qb' && window.QBFormat) extra = `<ul class="catlist">${Object.values(window.QBFormat.CATS).map((c) => `<li><span class="ic">${c.icon}</span><span><strong>${esc(c.label)}</strong><small>${esc(c.desc)}</small></span></li>`).join('')}</ul>`;
+    if (Q.format === 'qb' && window.QBFormat) extra = `<h4 class="sub-h">Βοήθειες (μία φορά η καθεμία ανά παιχνίδι)</h4><ul class="catlist lifelist">
+      <li><span class="ic num">×2</span><span><strong>Διπλασιασμός</strong><small>Τον ενεργοποιείς πριν διαλέξεις ερώτηση. Διπλασιάζει τους πόντους της.</small></span></li>
+      <li><span class="ic num">½</span><span><strong>50-50</strong><small>Μετά την ερώτηση: δύο επιλογές, αλλά η ερώτηση πάει στον 1 πόντο.</small></span></li>
+      <li><span class="ic">💡</span><span><strong>Take a hint</strong><small>Μετά την ερώτηση: ένα στοιχείο, με −1 πόντο (ελάχιστο 1).</small></span></li>
+    </ul><p class="note">Το 50-50 και το hint ισχύουν στις ερωτήσεις γραπτής απάντησης· στα Top 5, Guess The Score και Guess The Footballer ισχύει μόνο ο διπλασιασμός.</p>
+    <h4 class="sub-h">Κατηγορίες</h4><ul class="catlist">${Object.values(window.QBFormat.CATS).map((c) => `<li><span class="ic">${c.icon}</span><span><strong>${esc(c.label)}</strong><small>${esc(c.desc)}</small></span></li>`).join('')}</ul>`;
     if (Q.choices && quizId === 'basketball') extra = `<ul class="catlist">${Q.choices.map((c) => `<li><span class="ic num">${c.pts}</span><span><strong>${esc(c.label)}</strong><small>Ερώτηση ${esc(c.hint)}ς δυσκολίας</small></span></li>`).join('')}</ul>`;
     app.innerHTML = `
       <section class="page-head">
@@ -167,7 +172,11 @@
     else if (s.format === 'board') { const left = s.board.reduce((n, c) => n + c.cells.filter((x) => x.by === null).length, 0); sub = `${left} ερωτήσεις ακόμα`; }
     else if (quizId === 'basketball') sub = s.period > s.periods ? `Παράταση ${s.ot}` : `${s.period}η περίοδος`;
     else sub = `Γύρος ${Math.min(Math.floor(s.count / 2) + 1, s.perPeriod)} από ${s.perPeriod}`;
-    const plate = (i) => `<div class="plate ${i ? 'right' : ''} ${s.turn === i && s.phase !== 'over' ? 'active' : ''}"><span class="name">${esc(s.players[i].name)}</span><span class="score">${s.players[i].score}</span></div>`;
+    const lifes = (i) => {
+      const l = s.players[i].life; if (!l) return '';
+      return `<span class="lifes" aria-label="Βοήθειες">${[['x2', '×2'], ['ff', '50:50'], ['hint', '💡']].map(([k, t]) => `<i class="${l[k] ? '' : 'used'}" title="${l[k] ? 'Διαθέσιμη' : 'Χρησιμοποιήθηκε'}">${t}</i>`).join('')}</span>`;
+    };
+    const plate = (i) => `<div class="plate ${i ? 'right' : ''} ${s.turn === i && s.phase !== 'over' ? 'active' : ''}"><span class="pname"><span class="name">${esc(s.players[i].name)}</span>${lifes(i)}</span><span class="score">${s.players[i].score}</span></div>`;
     return `<div class="scoreboard">${plate(0)}<div class="clock"><span class="digits" id="clk">${s.timer ? s.timer : 'VS'}</span><span class="sub">${sub}</span></div>${plate(1)}</div>`;
   }
   function boardHtml(s, mine) {

@@ -302,3 +302,36 @@ h3 { font-size: 24px; }
   .final .big { font-size: 64px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ---------- Βοήθειες ---------- */
+.lifebar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 14px; }
+.life { display: flex; align-items: center; gap: 10px; text-align: left; padding: 9px 12px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--paper); transition: border-color .15s, background .15s; }
+.life:not(:disabled):hover { border-color: var(--gold); }
+.life:disabled { cursor: default; }
+.life-ic { flex: none; min-width: 42px; height: 34px; padding: 0 6px; display: grid; place-items: center; border-radius: 7px; background: var(--navy); color: var(--gold); font-family: var(--display); font-weight: 800; font-size: 17px; }
+.life-tx strong { display: block; font-size: 14px; line-height: 1.2; }
+.life-tx small { display: block; font-size: 12px; color: var(--ink-soft); line-height: 1.3; }
+.life[aria-pressed='true'] { border-color: var(--gold); background: #fff8e6; box-shadow: inset 0 0 0 1px var(--gold); }
+.life.used:not([aria-pressed='true']) { opacity: .45; }
+.life.used:not([aria-pressed='true']) .life-ic { background: var(--line-2); color: var(--ink-soft); }
+.life:disabled:not(.used):not([aria-pressed='true']) { opacity: .7; }
+.qbboard.armed .qcell:not(.done) { box-shadow: 0 0 0 2px var(--gold); }
+.x2tag { background: var(--gold); color: var(--navy); }
+.qmeta-r s { color: var(--ink-soft); margin-left: 4px; }
+.hintbox { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; margin: 0 0 12px; border-radius: var(--r-sm); background: #fff8e6; border: 1px solid #f1d58a; font-size: 16px; }
+.hintbox strong { display: block; font-size: 13px; color: #8a6200; }
+.ffopts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.pname { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.plate.right .pname { align-items: flex-end; }
+.lifes { display: flex; gap: 4px; }
+.lifes i { font-style: normal; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: rgba(244,183,40,.18); color: var(--gold); }
+.lifes i.used { background: rgba(255,255,255,.06); color: rgba(255,255,255,.3); text-decoration: line-through; }
+.sub-h { font-size: 15px; font-family: var(--body); font-weight: 700; margin: 20px 0 0; }
+.lifelist { grid-template-columns: 1fr; }
+@media (max-width: 640px) {
+  .lifebar { grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .life { flex-direction: column; text-align: center; padding: 8px 6px; gap: 4px; }
+  .life-tx small { display: none; }
+  .ffopts { grid-template-columns: 1fr; }
+  .lifes i { font-size: 10px; padding: 0 4px; }
+}

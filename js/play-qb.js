@@ -58,12 +58,43 @@
   function boardHtml(s, mine) {
     const left = s.board.reduce((n, c) => n + c.cells.filter((x) => x.by === null).length, 0);
     return `<div class="turnbar"><p class="turn">Σειρά: <strong>${esc(s.players[s.turn].name)}</strong>${mine ? ' — διάλεξε ερώτηση' : ' — περιμένουμε…'}</p><span class="progress">${left} ερωτήσεις ακόμα</span></div>
-      <div class="qbboard">${s.board.map((c, ci) => `<div class="qbcol">
+      ${lifeBar(s, { mine })}
+      <div class="qbboard ${s.armed ? 'armed' : ''}">${s.board.map((c, ci) => `<div class="qbcol">
         <div class="head"><span class="ic">${c.icon}</span>${esc(c.label)}</div>
         ${c.cells.map((x, ri) => x.by === null
           ? `<button class="qcell d${x.diff}" data-cell="${ci},${ri}" ${mine ? '' : 'disabled'}>${cellLabel(x)}</button>`
           : `<button class="qcell done ${x.by >= 0 ? 'p' + x.by : ''}" disabled>${x.by < 0 ? '—' : `<b>+${x.got}</b><small>${esc(s.players[x.by].name.slice(0, 10))}</small>`}</button>`).join('')}
       </div>`).join('')}</div>`;
+  }
+
+  // ---------- βοήθειες ----------
+  const LIFE = {
+    x2: { icon: '×2', label: 'Διπλασιασμός', when: 'Πριν διαλέξεις ερώτηση' },
+    ff: { icon: '50:50', label: '50-50', when: 'Δύο επιλογές, η ερώτηση πάει στον 1 πόντο' },
+    hint: { icon: '💡', label: 'Take a hint', when: 'Ένα στοιχείο, −1 πόντος' },
+  };
+  function lifeBar(s, ctx) {
+    const pl = s.players[s.turn]; if (!pl.life) return '';
+    const c = s.current, q = c && c.q;
+    const textQ = q && q.kind === 'text' && s.phase === 'question';
+    const btn = (k, enabled, pressed, note) => {
+      const used = !pl.life[k];
+      return `<button class="life ${used ? 'used' : ''}" data-act="${k}" ${enabled ? '' : 'disabled'} ${pressed ? 'aria-pressed="true"' : ''} title="${esc(LIFE[k].when)}">
+        <span class="life-ic">${LIFE[k].icon}</span><span class="life-tx"><strong>${LIFE[k].label}</strong><small>${esc(used && !pressed ? 'Χρησιμοποιήθηκε' : note || LIFE[k].when)}</small></span></button>`;
+    };
+    let x2Note = LIFE.x2.when, ffNote = LIFE.ff.when, hintNote = LIFE.hint.when;
+    if (s.phase === 'choose' && s.armed) x2Note = 'Ενεργός: διάλεξε ερώτηση (πάτα ξανά για ακύρωση)';
+    if (c && c.mult === 2) x2Note = 'Ενεργός σε αυτή την ερώτηση';
+    if (s.phase === 'choose') { ffNote = 'Μετά την ερώτηση'; hintNote = 'Μετά την ερώτηση'; }
+    if (q && q.kind !== 'text') { ffNote = 'Δεν ισχύει σε αυτή την κατηγορία'; hintNote = ffNote; }
+    if (c && c.ffOpts) ffNote = 'Χρησιμοποιήθηκε εδώ';
+    if (c && c.hinted) hintNote = 'Χρησιμοποιήθηκε εδώ';
+    const can = ctx.mine;
+    return `<div class="lifebar" aria-label="Βοήθειες ${esc(pl.name)}">
+      ${btn('x2', can && s.phase === 'choose' && pl.life.x2, s.armed || (c && c.mult === 2), x2Note)}
+      ${btn('ff', can && textQ && pl.life.ff && q.alt && !c.ffOpts, c && c.ffOpts, ffNote)}
+      ${btn('hint', can && textQ && pl.life.hint && !c.hinted, c && c.hinted, hintNote)}
+    </div>`;
   }
 
   // ---------- μέσα ερώτησης ----------
@@ -95,9 +126,9 @@
     if (q.kind === 'footballer') {
       body += `<ol class="clues">${q.clues.slice(0, rev ? 3 : c.clues).map((x) => `<li>${esc(x)}</li>`).join('')}</ol>`;
       if (!rev) {
-        const now = 4 - c.clues;
+        const now = (4 - c.clues) * c.mult;
         body += inputRow({ ak: 'person' }, mine, `Απάντηση για ${ptsWord(now)}`);
-        if (mine && c.clues < 3) body += `<button class="btn ghost small" data-act="clue">Πάρε κι άλλο στοιχείο (πέφτεις στους ${now - 1})</button>`;
+        if (mine && c.clues < 3) body += `<button class="btn ghost small" data-act="clue">Πάρε κι άλλο στοιχείο (πέφτεις στους ${now - c.mult})</button>`;
       }
     }
     if (q.kind === 'top5') {
@@ -114,7 +145,7 @@
       body += `<p class="cushion">Μαξιλαράκι: ${c.misses === 0 ? '✓ ακέραιο' : '✗ χάθηκε'}${wrong.length ? ` · Λάθος: ${wrong.join(', ')}` : ''}</p>`;
       if (!rev) {
         body += inputRow(q, mine, 'Πρόσθεσε');
-        if (mine && c.found.length === 4) body += `<button class="btn ghost small" data-act="stop">Σταματάω εδώ (${ptsWord(c.misses === 0 ? 2 : 1)})</button>`;
+        if (mine && c.found.length === 4) body += `<button class="btn ghost small" data-act="stop">Σταματάω εδώ (${ptsWord((c.misses === 0 ? 2 : 1) * c.mult)})</button>`;
         if (ctx.canApprove && c.lastWrong) body += `<button class="btn ghost small" data-act="approve">Δεκτή η απάντηση «${esc(c.lastWrong)}»</button>`;
       }
     }
@@ -128,7 +159,16 @@
           <button class="btn" type="submit">Υποβολή</button></form>`;
       } else if (!rev) body += '<p class="note">Απαντά ο αντίπαλος…</p>';
     }
-    if (q.kind === 'text' && !rev) body += inputRow(q, mine);
+    if (q.kind === 'text' && c.hinted) body += `<div class="hintbox"><span>💡</span><span><strong>Hint</strong>${esc(q.hint)}</span></div>`;
+    if (q.kind === 'text' && c.ffOpts) {
+      body += `<div class="ffopts">${c.ffOpts.map((o) => {
+        let cls = '';
+        if (rev && o === q.ffCorrect) cls = 'right';
+        else if (rev && c.entries.some((e) => e.t === o)) cls = 'wrong';
+        return `<button class="opt ${cls}" data-ffopt="${esc(o)}" ${!rev && mine ? '' : 'disabled'}>${esc(o)}</button>`;
+      }).join('')}</div>`;
+      if (!rev && !mine) body += '<p class="note">Απαντά ο αντίπαλος…</p>';
+    } else if (q.kind === 'text' && !rev) body += inputRow(q, mine);
 
     let verdict = '';
     if (rev) {
@@ -141,11 +181,12 @@
       } else {
         verdict = `<div class="verdict ${c.got ? 'ok' : 'no'}">${c.got ? `Σωστό! +${c.got} για ${name}` : 'Λάθος.'}</div><div class="explain">${given ? given + ' · ' : ''}Σωστή απάντηση: ${esc(q.reveal)}</div>`;
       }
-      if (ctx.canApprove && c.got < c.max && !c.approved && q.kind !== 'top5') verdict += `<button class="btn ghost small" data-act="approve">Δεκτή η απάντηση (απόφαση αντιπάλου)</button>`;
+      if (ctx.canApprove && c.got < c.max && !c.approved && !c.ffOpts && !(q.kind === 'text' && c.got > 0) && q.kind !== 'top5') verdict += `<button class="btn ghost small" data-act="approve">Δεκτή η απάντηση (απόφαση αντιπάλου)</button>`;
       verdict += `<div class="row next-row"><button class="btn" data-act="next">Συνέχεια</button></div>`;
     }
-    const ptsInfo = q.kind === 'text' ? ptsWord(c.diff) : `έως ${c.max} πόντοι`;
-    return `<div class="qcard"><div class="qmeta"><span class="tag">${cat.icon} ${esc(cat.label)}</span><span class="tag diff d${c.diff}">${DIFF[c.diff]}</span><span class="qmeta-r"><b>${ptsInfo}</b> για ${esc(s.players[s.turn].name)}</span></div>${body}${verdict}</div>`;
+    const ptsInfo = q.kind === 'text' ? ptsWord(c.val * c.mult) : `έως ${c.max} πόντοι`;
+    const changed = q.kind === 'text' && c.val !== c.diff ? ` <s>${c.diff * c.mult}</s>` : '';
+    return `${rev ? '' : lifeBar(s, ctx)}<div class="qcard"><div class="qmeta"><span class="tag">${cat.icon} ${esc(cat.label)}</span><span class="tag diff d${c.diff}">${DIFF[c.diff]}</span>${c.mult === 2 ? '<span class="tag x2tag">×2</span>' : ''}<span class="qmeta-r"><b>${ptsInfo}</b>${changed} για ${esc(s.players[s.turn].name)}</span></div>${body}${verdict}</div>`;
   }
 
   function render(s, ctx) {
@@ -160,6 +201,7 @@
     root.querySelectorAll('[data-draft]').forEach((b) => b.onclick = () => act({ type: 'draft', cat: b.dataset.draft }));
     root.querySelectorAll('[data-cell]').forEach((b) => b.onclick = () => act({ type: 'choose', cell: b.dataset.cell.split(',').map(Number) }));
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => act({ type: b.dataset.act }));
+    root.querySelectorAll('[data-ffopt]').forEach((b) => b.onclick = () => act({ type: 'answer', text: b.dataset.ffopt }));
     root.querySelectorAll('[data-mic]').forEach((b) => b.onclick = () => listen(document.getElementById(b.dataset.mic), b));
     const f = root.querySelector('#ansForm');
     if (f) {

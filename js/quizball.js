@@ -32,6 +32,35 @@
   const POSROW = { GK: 0, SW: 1, RB: 1, CB: 1, LB: 1, RWB: 1, LWB: 1, DF: 1, DM: 2, RM: 3, CM: 3, LM: 3, MF: 3, AM: 4, RW: 5, LW: 5, RF: 5, LF: 5, CF: 5, SS: 5, ST: 5, FW: 5 };
   const lineupRows = (xi) => { const rows = [[], [], [], [], [], []]; xi.forEach((p) => rows[POSROW[p[0]] ?? 3].push(p)); return rows.filter((r) => r.length); };
 
+  // ---------- βοήθειες: στοιχεία για hint και λάθος επιλογή για 50-50 ----------
+  const nameIdx = {}; Object.entries(P).forEach(([k, p]) => { if (!(p.n in nameIdx)) nameIdx[p.n] = k; });
+  const nat = (id) => (P[id] && P[id].natName) || null;
+  function personHint(id, noPos) {
+    const p = P[id]; if (!p) return null;
+    const parts = [];
+    if (p.natName) parts.push(`Εθνικότητα: ${p.natName}`);
+    if (p.pos && !noPos) parts.push(`Θέση: ${p.pos}`);
+    if (!parts.length && p.born) parts.push(`Γεννήθηκε το ${p.born}`);
+    return parts.length ? parts.join(' · ') : null;
+  }
+  const managerHint = (id) => {
+    const p = P[id]; if (!p) return null;
+    const parts = [];
+    if (p.natName) parts.push(`Εθνικότητα: ${p.natName}`);
+    if (p.cl && p.cl.length) parts.push(`Ως ποδοσφαιριστής ξεκίνησε στην ομάδα «${tName(p.cl[0][0])}»`);
+    return parts.length ? parts.join(' · ') : null;
+  };
+  const teamHint = (k) => (TM[k] && TM[k].cn ? `Η ομάδα είναι από: ${TM[k].cn}` : null);
+  // παρόμοιας φήμης πρόσωπο (κατά προτίμηση ίδιας εθνικότητας), για λάθος επιλογή στο 50-50
+  function similarPerson(r, id, filt) {
+    const f0 = (P[id] && P[id].f) || 60; const n0 = nat(id);
+    const pool = Object.keys(P).filter((k) => k !== id && P[k].f && Math.abs(P[k].f - f0) <= 25 && (!filt || filt(k)));
+    const same = pool.filter((k) => n0 && P[k].natName === n0);
+    const k = pick(r, same.length >= 3 ? same : pool); return k ? pName(k) : null;
+  }
+  const playsFor = (k, club) => (P[k].cl || []).some((c) => c[0] === club);
+  const otherMgr = (m, side) => (m.lu && m.lu[side] && m.lu[side].mgr && P[m.lu[side].mgr] ? pName(m.lu[side].mgr) : null);
+
   // ---------- κατηγορίες ----------
   // Κάθε gen(r, diff) επιστρέφει ερώτηση ή null. kind: text | top5 | footballer | score
   const T = (key, prompt, names, ak, extra) => Object.assign({ kind: 'text', key, prompt, ans: { list: [names], ak }, reveal: names[0] }, extra || {});
@@ -43,25 +72,30 @@
       if (t < 0.25 && F.ballonDor) {
         const ys = Object.keys(F.ballonDor).map(Number).filter((y) => (y >= 2008 ? 1 : y >= 1998 ? 2 : 3) === d);
         if (!ys.length) return null; const y = pick(r, ys);
-        return T('bd' + y, `Ποιος κέρδισε τη Χρυσή Μπάλα το ${y};`, [F.ballonDor[y]], 'person');
+        const winner = F.ballonDor[y];
+        const near = Object.entries(F.ballonDor).filter(([yy, v]) => v !== winner && Math.abs(+yy - y) <= 6).map(([, v]) => v);
+        return T('bd' + y, `Ποιος κέρδισε τη Χρυσή Μπάλα το ${y};`, [winner], 'person', { hint: personHint(nameIdx[winner]), alt: pick(r, near) });
       }
       const m = pick(r, decided.filter((x) => matchDiff(x) === d)); if (!m) return null;
       const w = winnerIdx(m);
-      if (t < 0.6) return T('win' + m.id, `Ποια ομάδα κατέκτησε το ${compName(m)} το ${m.year};`, tNames(m.t[w]), 'club');
-      if (t < 0.8) return T('lose' + m.id, `Ποια ομάδα έχασε στον τελικό του ${compGen(m)} το ${m.year};`, tNames(m.t[1 - w]), 'club');
+      if (t < 0.6) return T('win' + m.id, `Ποια ομάδα κατέκτησε το ${compName(m)} το ${m.year};`, tNames(m.t[w]), 'club', { hint: teamHint(m.t[w]), alt: tName(m.t[1 - w]) });
+      if (t < 0.8) return T('lose' + m.id, `Ποια ομάδα έχασε στον τελικό του ${compGen(m)} το ${m.year};`, tNames(m.t[1 - w]), 'club', { hint: teamHint(m.t[1 - w]), alt: tName(m.t[w]) });
       const mg = m.lu && m.lu[w] && m.lu[w].mgr; if (!mg) return null;
-      return T('mgr' + m.id, `Ποιος ήταν ο προπονητής της ομάδας «${tName(m.t[w])}» όταν κατέκτησε το ${compName(m)} το ${m.year};`, pNames(mg), 'person');
+      return T('mgr' + m.id, `Ποιος ήταν ο προπονητής της ομάδας «${tName(m.t[w])}» όταν κατέκτησε το ${compName(m)} το ${m.year};`, pNames(mg), 'person',
+        { hint: managerHint(mg), alt: otherMgr(m, 1 - w) });
     } },
     geography: { label: 'Γεωγραφία', icon: '🌍', desc: 'Ποδόσφαιρο και γεωγραφία: πόλεις, χώρες, γήπεδα', gen(r, d) {
       const t = r();
       if (t < 0.35) {
         const m = pick(r, D.matches.filter((x) => x.city && matchDiff(x) === d)); if (!m) return null;
-        return T('city' + m.id, `Σε ποια πόλη έγινε ο τελικός του ${compGen(m)} ${m.year};`, [m.city], 'city');
+        const other = pick(r, D.matches.filter((x) => x.city && x.city !== m.city && x.comp === m.comp));
+        return T('city' + m.id, `Σε ποια πόλη έγινε ο τελικός του ${compGen(m)} ${m.year};`, [m.city], 'city', { alt: other && other.city });
       }
       const clubs = Object.entries(TM).filter(([k, v]) => !k.startsWith('N:') && v.f && teamDiff(v.f) === d);
       if (t < 0.7) {
         const [k, c] = pick(r, clubs.filter(([, v]) => v.city) ) || []; if (!c) return null;
-        return T('ccity' + k, `Σε ποια πόλη έχει την έδρα της η ομάδα «${c.n}»;`, [c.city], 'city');
+        const sameCn = Object.values(TM).filter((v) => v.city && v.cn === c.cn && v.city !== c.city).map((v) => v.city);
+        return T('ccity' + k, `Σε ποια πόλη έχει την έδρα της η ομάδα «${c.n}»;`, [c.city], 'city', { hint: c.cn ? `Η πόλη βρίσκεται στη χώρα: ${c.cn}` : null, alt: pick(r, sameCn) });
       }
       const [k, c] = pick(r, clubs.filter(([, v]) => v.cn)) || []; if (!c) return null;
       return T('ccn' + k, `Σε ποια χώρα ανήκει η ομάδα «${c.n}»;`, [c.cn], 'country');
@@ -73,33 +107,46 @@
       if (!cand.length) return null;
       const [p, idx] = pick(r, cand);
       const rows = lineupRows(xi.map((x, i) => [x[0], x[1], i === idx ? null : x[3]]));
-      return T('miss' + m.id + side + idx, `${matchLabel(m)}: ${tName(m.t[side])} – ${tName(m.t[1 - side])}. Ποιος λείπει από την 11άδα της ομάδας «${tName(m.t[side])}»;`, pNames(p[2]), 'person', { media: { type: 'lineup', rows } });
+      const inXi = new Set(xi.map((x) => x[2]));
+      const mh = [personHint(p[2], true), P[p[2]].born ? `Γεννήθηκε το ${P[p[2]].born}` : null].filter(Boolean).join(' · ');
+      return T('miss' + m.id + side + idx, `${matchLabel(m)}: ${tName(m.t[side])} – ${tName(m.t[1 - side])}. Ποιος λείπει από την 11άδα της ομάδας «${tName(m.t[side])}»;`, pNames(p[2]), 'person',
+        { media: { type: 'lineup', rows }, hint: mh || null, alt: similarPerson(r, p[2], (k) => P[k].cl && !inXi.has(k)) });
     } },
     combo: { label: 'Club Combo', icon: '🔗', desc: 'Βρες παίκτη που έχει αγωνιστεί και στις 2 ομάδες', gen(r, d) {
       const pair = pick(r, D.combos.filter((c) => c.d === d)); if (!pair) return null;
+      const best = pair.p[0]; const ok = new Set(pair.p);
+      const decoys = Object.keys(P).filter((k) => !ok.has(k) && P[k].cl && P[k].f >= 50 && (playsFor(k, pair.a) !== playsFor(k, pair.b))).sort((x, y) => P[y].f - P[x].f).slice(0, 12);
+      const bh = personHint(best);
       return { kind: 'text', key: 'combo' + pair.a + pair.b, prompt: 'Βρες έναν ποδοσφαιριστή που έχει αγωνιστεί και στις δύο ομάδες.',
         media: { type: 'pair', a: tName(pair.a), b: tName(pair.b) }, ans: { list: pair.p.map(pNames), ak: 'person' },
+        hint: bh ? `Ένας από τους σωστούς: ${bh}` : null, alt: decoys.length ? pName(pick(r, decoys)) : null,
         reveal: pair.p.slice(0, 6).map(pName).join(', ') + (pair.p.length > 6 ? ` και άλλοι ${pair.p.length - 6}` : '') };
     } },
     playerId: { label: 'Player ID', icon: '🪪', desc: 'Βρες τον παίκτη από την καριέρα του', gen(r, d) {
       const ids = Object.keys(P).filter((k) => P[k].cl && P[k].cl.length >= 3 && fameDiff(P[k].f) === d && era(P[k], d));
       const id = pick(r, ids); if (!id) return null;
+      const clubs = new Set(P[id].cl.map((c) => c[0]));
       return T('pid' + id, 'Ποιος ποδοσφαιριστής είχε αυτή την καριέρα;', pNames(id), 'person',
-        { media: { type: 'career', rows: P[id].cl.map((c) => [yrs(c[1], c[2]), tName(c[0]) + (c[3] ? ' (δανεικός)' : '')]) } });
+        { media: { type: 'career', rows: P[id].cl.map((c) => [yrs(c[1], c[2]), tName(c[0]) + (c[3] ? ' (δανεικός)' : '')]) },
+          hint: personHint(id), alt: similarPerson(r, id, (k) => P[k].cl && P[k].cl.some((c) => clubs.has(c[0]))) });
     } },
     managerId: { label: 'Manager ID', icon: '📋', desc: 'Βρες τον προπονητή από την καριέρα του', gen(r, d) {
       const ids = Object.keys(P).filter((k) => P[k].mc && P[k].mc.length >= 3 && P[k].f >= 40 && fameDiff(P[k].f) === d
         && P[k].mc.filter((c) => (TM[c[0]] || {}).f >= 10 || String(c[0]).startsWith('N:')).length >= 3);
       const id = pick(r, ids); if (!id) return null;
+      const clubs = new Set(P[id].mc.map((c) => c[0]));
       return T('mid' + id, 'Ποιος προπονητής είχε αυτή την καριέρα;', pNames(id), 'person',
-        { media: { type: 'career', rows: P[id].mc.map((c) => [yrs(c[1], c[2]), tName(c[0])]) } });
+        { media: { type: 'career', rows: P[id].mc.map((c) => [yrs(c[1], c[2]), tName(c[0])]) },
+          hint: managerHint(id), alt: similarPerson(r, id, (k) => P[k].mc && P[k].mc.some((c) => clubs.has(c[0]))) || similarPerson(r, id, (k) => P[k].mc) });
     } },
     nations: { label: 'Nations XI', icon: '🏳️', desc: 'Βρες την ομάδα από τις εθνικότητες της 11άδας', gen(r, d) {
       const opts = [];
       D.matches.forEach((m) => (m.lu || []).forEach((l, side) => { if (!m.t[side].startsWith('N:') && l.xi.every((x) => x[1])) opts.push([m, side]); }));
       const [m, side] = pick(r, opts.filter(([x]) => matchDiff(x) === d)) || []; if (!m) return null;
       const rows = lineupRows(m.lu[side].xi.map((x) => [x[0], x[1], null]));
-      return T('nat' + m.id + side, `${matchLabel(m)}: ποια ομάδα παρατάχθηκε με αυτές τις εθνικότητες;`, tNames(m.t[side]), 'club', { media: { type: 'flags', rows } });
+      const opp = m.t[1 - side];
+      return T('nat' + m.id + side, `${matchLabel(m)}: ποια ομάδα παρατάχθηκε με αυτές τις εθνικότητες;`, tNames(m.t[side]), 'club',
+        { media: { type: 'flags', rows }, hint: teamHint(m.t[side]), alt: opp.startsWith('N:') ? null : tName(opp) });
     } },
     top5: { label: 'Top 5', icon: '🖐️', desc: 'Βρες και τα 5. Έχεις ένα μαξιλαράκι για λάθος', gen(r, d) {
       const l = pick(r, D.top5.filter((x) => x.d === d)) || pick(r, D.top5); if (!l) return null;
@@ -108,7 +155,8 @@
     transfer: { label: 'Retro Transfer', icon: '🔁', desc: 'Βρες ποιος έκανε αυτή τη μεταγραφή', gen(r, d) {
       const tr = pick(r, D.transfers.filter((x) => fameDiff(P[x.p].f) === d && era(P[x.p], d))); if (!tr) return null;
       return T('tr' + tr.p + tr.to, 'Ποιος ποδοσφαιριστής έκανε αυτή τη μεταγραφή;', pNames(tr.p), 'person',
-        { media: { type: 'transfer', from: tName(tr.from), to: tName(tr.to), when: tr.w } });
+        { media: { type: 'transfer', from: tName(tr.from), to: tName(tr.to), when: tr.w },
+          hint: personHint(tr.p), alt: similarPerson(r, tr.p, (k) => P[k].cl && (playsFor(k, tr.from) || playsFor(k, tr.to))) });
     } },
     score: { label: 'Guess The Score', icon: '🎯', desc: 'Βρες το σκορ (1 πόντος) και όλους τους σκόρερ (1 πόντος)', gen(r, d) {
       const m = pick(r, D.matches.filter((x) => x.sc && x.g && matchDiff(x) === d)); if (!m) return null;
@@ -123,14 +171,24 @@
       const t = r();
       const m = pick(r, decided.filter((x) => matchDiff(x) === d)); if (!m) return null;
       const w = winnerIdx(m);
-      if (t < 0.3) return T('lw' + m.id, `Η ομάδα «___» κατέκτησε το ${compName(m)} το ${m.year}, νικώντας στον τελικό την ομάδα «${tName(m.t[1 - w])}».`, tNames(m.t[w]), 'club');
+      if (t < 0.3) return T('lw' + m.id, `Η ομάδα «___» κατέκτησε το ${compName(m)} το ${m.year}, νικώντας στον τελικό την ομάδα «${tName(m.t[1 - w])}».`, tNames(m.t[w]), 'club',
+        { hint: teamHint(m.t[w]), alt: pick(r, decided.filter((x) => x.comp === m.comp && x.id !== m.id && Math.abs(x.year - m.year) <= 8).flatMap((x) => x.t).filter((k) => k !== m.t[w] && k !== m.t[1 - w]).map(tName)) });
       if (t < 0.6) {
+        if (!m.g) return null;
         const side = r() < 0.5 ? 0 : 1; const sc = m.g[side].filter((x) => !x[2]); if (!sc.length) return null;
-        return { kind: 'text', key: 'ls' + m.id + side, prompt: `Ο ___ σκόραρε για την ομάδα «${tName(m.t[side])}» στον ${matchLabelLow(m)}.`, ans: { list: sc.map((x) => pNames(x[0])), ak: 'person' }, reveal: sc.map((x) => pName(x[0])).join(', ') };
+        const scorers = new Set(sc.map((x) => x[0]));
+        const mates = m.lu ? m.lu[side].xi.map((x) => x[2]).filter((k) => k && P[k] && !scorers.has(k)) : [];
+        const sh = personHint(sc[0][0]);
+        return { kind: 'text', key: 'ls' + m.id + side, prompt: `Ο ___ σκόραρε για την ομάδα «${tName(m.t[side])}» στον ${matchLabelLow(m)}.`, ans: { list: sc.map((x) => pNames(x[0])), ak: 'person' },
+          hint: sh ? (sc.length > 1 ? `Ένας από τους σκόρερ: ${sh}` : sh) : null, alt: mates.length ? pName(pick(r, mates)) : null,
+          reveal: sc.map((x) => pName(x[0])).join(', ') };
       }
-      if (t < 0.8 && m.lu && m.lu[w].mgr) return T('lm' + m.id, `Ο ___ ήταν ο προπονητής της ομάδας «${tName(m.t[w])}» που κατέκτησε το ${compName(m)} το ${m.year}.`, pNames(m.lu[w].mgr), 'person');
+      if (t < 0.8 && m.lu && m.lu[w].mgr) return T('lm' + m.id, `Ο ___ ήταν ο προπονητής της ομάδας «${tName(m.t[w])}» που κατέκτησε το ${compName(m)} το ${m.year}.`, pNames(m.lu[w].mgr), 'person',
+        { hint: managerHint(m.lu[w].mgr), alt: otherMgr(m, 1 - w) });
       const tr = pick(r, D.transfers.filter((x) => fameDiff(P[x.p].f) === d)); if (!tr) return null;
-      return T('lt' + tr.p + tr.to, `Ο ${pName(tr.p)} πήγε από την ομάδα «${tName(tr.from)}» στην ομάδα «___» (${tr.w}).`, tNames(tr.to), 'club');
+      const sameCn = Object.keys(TM).filter((k) => k !== tr.to && k !== tr.from && !k.startsWith('N:') && TM[k].f >= 15 && TM[tr.to] && TM[k].cn === TM[tr.to].cn);
+      return T('lt' + tr.p + tr.to, `Ο ${pName(tr.p)} πήγε από την ομάδα «${tName(tr.from)}» στην ομάδα «___» (${tr.w}).`, tNames(tr.to), 'club',
+        { hint: teamHint(tr.to), alt: sameCn.length ? tName(pick(r, sameCn)) : null });
     } },
     footballer: { label: 'Guess The Footballer', icon: '🕵️', desc: '3 στοιχεία: απάντησε νωρίς για περισσότερους πόντους', gen(r, d) {
       const ids = Object.keys(P).filter((k) => P[k].cl && P[k].cl.length >= 2 && P[k].born && fameDiff(P[k].f) === d && era(P[k], d));
@@ -146,9 +204,27 @@
     const order = [diff, diff === 3 ? 2 : diff + 1, diff === 1 ? 3 : diff - 1];
     for (const d of order) for (let i = 0; i < 40; i++) {
       let q = null; try { q = CATS[cat].gen(r, d); } catch (e) { q = null; }
-      if (q && !used.has(q.key)) { used.add(q.key); q.cat = cat; q.diff = diff; return q; }
+      if (q && !used.has(q.key)) { used.add(q.key); q.cat = cat; q.diff = diff; finalizeAids(q, r); return q; }
     }
     return null;
+  }
+
+  // Συμπληρώνει hint (αρχικά, αν η κατηγορία δεν έδωσε στοιχείο) και λάθος επιλογή για 50-50.
+  // Οι βοήθειες 50-50 και hint ισχύουν μόνο στις ερωτήσεις γραπτής απάντησης (kind: text).
+  const FAMOUS_P = Object.keys(P).filter((k) => P[k].f >= 55 && P[k].cl);
+  const BIG_CLUBS = Object.keys(TM).filter((k) => !k.startsWith('N:') && TM[k].f >= 40);
+  const initials = (s) => `Αρχικά: ${String(s).split(/\s+/).filter(Boolean).map((w) => w[0].toUpperCase() + '.').join(' ')}`;
+  function finalizeAids(q, r) {
+    if (q.kind !== 'text') return;
+    const correct = q.ans.list[0][0];
+    const ak = q.ans.ak;
+    const bad = (x) => !x || x === correct || q.ans.list.some((n) => M.matches(x, n, ak)) || M.matches(correct, [x], ak);
+    if (!q.hint) q.hint = initials(correct);
+    for (let i = 0; bad(q.alt) && i < 40; i++) {
+      q.alt = ak === 'club' ? tName(pick(r, BIG_CLUBS)) : ak === 'city' ? pick(r, D.cities) : ak === 'country' ? pick(r, D.countries) : pName(pick(r, FAMOUS_P));
+    }
+    if (bad(q.alt)) q.alt = null;
+    q.ffCorrect = correct;
   }
 
   // ---------- έλεγχος απαντήσεων ----------
@@ -158,8 +234,8 @@
   const CAT_IDS = Object.keys(CATS);
   function newGame(quiz, settings, names, rng, cpu) {
     return {
-      quiz, format: 'qb', players: names.map((n, i) => ({ name: n, score: 0, cpu: !!(cpu && i === 1) })),
-      turn: 0, phase: 'draft', drafted: [], board: null, current: null, used: [], history: [], seq: 0,
+      quiz, format: 'qb', players: names.map((n, i) => ({ name: n, score: 0, cpu: !!(cpu && i === 1), life: { x2: 1, ff: 1, hint: 1 } })),
+      turn: 0, phase: 'draft', drafted: [], board: null, current: null, used: [], history: [], seq: 0, armed: false,
     };
   }
   function buildBoard(st, rng) {
@@ -178,7 +254,8 @@
     st.used = [...used];
   }
   const maxPts = (q, diff) => (q.kind === 'top5' || q.kind === 'footballer' ? 3 : q.kind === 'score' ? 2 : diff);
-  function award(st, pts) { st.current.got += pts; st.players[st.turn].score += pts; }
+  // base = πόντοι πριν τον διπλασιασμό· ο ×2 εφαρμόζεται πάντα στο τέλος
+  function award(st, base) { const c = st.current; const pts = base * (c.mult || 1); c.raw = (c.raw || 0) + base; c.got += pts; st.players[st.turn].score += pts; }
   function endQuestion(st) {
     const c = st.current; const cell = st.board[c.cell[0]].cells[c.cell[1]];
     cell.by = st.turn; cell.got = c.got; c.done = true;
@@ -196,12 +273,19 @@
       else st.turn = 1 - st.turn;
       return st;
     }
+    if (a.type === 'x2') { // διπλασιασμός: ενεργοποιείται (ή ακυρώνεται) πριν διαλέξεις ερώτηση
+      if (st.phase !== 'choose' || by !== st.turn || !st.players[by].life.x2) return null;
+      st.armed = !st.armed;
+      return st;
+    }
     if (a.type === 'choose') {
       if (st.phase !== 'choose' || by !== st.turn) return null;
       const [ci, ri] = a.cell || []; const cell = st.board[ci] && st.board[ci].cells[ri];
       if (!cell || cell.by !== null) return null;
       const q = cell.q;
-      st.current = { q, cell: [ci, ri], diff: cell.diff, max: maxPts(q, cell.diff), got: 0, step: 0, entries: [], found: [], misses: 0, clues: 1, scoreOk: null, scorersOk: null, ok: null };
+      const mult = st.armed ? 2 : 1;
+      if (st.armed) { st.players[by].life.x2 = 0; st.armed = false; }
+      st.current = { q, cell: [ci, ri], diff: cell.diff, val: cell.diff, mult, max: maxPts(q, cell.diff) * mult, got: 0, raw: 0, step: 0, entries: [], found: [], misses: 0, clues: 1, scoreOk: null, scorersOk: null, ok: null };
       st.phase = 'question';
       return st;
     }
@@ -223,18 +307,31 @@
         if (c.found.length === 5) { award(st, 3); endQuestion(st); }
         return st;
       }
-      if (st.phase !== 'reveal' || c.got >= c.max || c.approved) return null;
+      if (st.phase !== 'reveal' || c.got >= c.max || c.approved || c.ffOpts) return null;
+      if (c.q.kind === 'text' && c.got > 0) return null;
       c.approved = true;
-      const add = c.q.kind === 'footballer' ? Math.max(1, 4 - c.clues) : c.max - c.got;
+      const add = c.q.kind === 'footballer' ? Math.max(1, 4 - c.clues) : c.q.kind === 'text' ? c.val : 2 - c.raw;
       award(st, add); c.ok = true; st.history[st.history.length - 1].pts = c.got; st.history[st.history.length - 1].ok = true;
       st.board[c.cell[0]].cells[c.cell[1]].got = c.got;
       return st;
     }
     if (st.phase !== 'question' || by !== st.turn) return null;
-    const q = c.q; c.step++;
+    const q = c.q; const life = st.players[by].life;
+    if (a.type === 'hint') { // Take a hint: −1 πόντος (ελάχιστο 1)
+      if (q.kind !== 'text' || !life.hint || c.hinted) return null;
+      life.hint = 0; c.hinted = true; c.val = Math.max(1, c.val - 1); c.step++;
+      return st;
+    }
+    if (a.type === 'ff') { // 50-50: δύο επιλογές, η ερώτηση πάει στον 1 πόντο
+      if (q.kind !== 'text' || !life.ff || c.ffOpts || !q.alt) return null;
+      life.ff = 0; c.ffOpts = shuffle(rng, [q.ffCorrect, q.alt]); c.val = 1; c.step++;
+      return st;
+    }
+    c.step++;
     if (q.kind === 'text' && a.type === 'answer') {
-      c.entries.push({ t: a.text }); c.ok = okText(q, a.text || '');
-      if (c.ok) award(st, c.diff);
+      c.entries.push({ t: a.text });
+      c.ok = c.ffOpts ? a.text === q.ffCorrect : okText(q, a.text || '');
+      if (c.ok) award(st, c.val);
       endQuestion(st); return st;
     }
     if (q.kind === 'footballer') {
@@ -272,16 +369,32 @@
 
   // ---------- Αντίπαλος Η/Υ ----------
   const ACC = { easy: [0.55, 0.35, 0.2], medium: [0.78, 0.58, 0.4], hard: [0.92, 0.78, 0.6] };
+  const X2P = { easy: 0.12, medium: 0.18, hard: 0.25 };
   function aiAction(st, level, r) {
     const acc = ACC[level] || ACC.medium;
     if (st.phase === 'draft') return { type: 'draft', cat: pick(r, CAT_IDS.filter((k) => !st.drafted.some((d) => d.cat === k))) };
+    const life = st.players[st.turn].life || {};
+    const freeCells = () => { const f = []; st.board.forEach((col, ci) => col.cells.forEach((x, ri) => { if (x.by === null) f.push([ci, ri, x.diff]); })); return f; };
     if (st.phase === 'choose') {
-      const free = []; st.board.forEach((col, ci) => col.cells.forEach((x, ri) => { if (x.by === null) free.push([ci, ri]); }));
-      return { type: 'choose', cell: pick(r, free) };
+      const free = freeCells();
+      const myLeft = Math.ceil(free.length / 2);
+      // διπλασιασμός: σε τυχαία στιγμή, σίγουρα πριν τελειώσουν οι ερωτήσεις του
+      if (life.x2 && !st.armed && (myLeft <= 2 || r() < (X2P[level] || 0.18))) return { type: 'x2' };
+      const pool = st.armed ? free.filter((x) => x[2] === Math.max(...free.map((y) => y[2]))) : free;
+      const cell = pick(r, pool);
+      return { type: 'choose', cell: [cell[0], cell[1]] };
     }
     if (st.phase !== 'question') return null;
     const c = st.current, q = c.q, p = acc[c.diff - 1];
-    if (q.kind === 'text') return { type: 'answer', text: r() < p ? q.ans.list[0][0] : '—' };
+    if (q.kind === 'text') {
+      const myLeft = Math.ceil(freeCells().length / 2);
+      if (!c.hinted && !c.ffOpts) {
+        if (life.hint && c.val >= 2 && (r() < 0.3 || myLeft <= 1)) return { type: 'hint' };
+        if (life.ff && q.alt && (r() < (c.diff === 3 ? 0.3 : 0.08) || myLeft <= 1)) return { type: 'ff' };
+      }
+      if (c.ffOpts) return { type: 'answer', text: r() < 0.5 + p / 2 ? q.ffCorrect : q.alt };
+      return { type: 'answer', text: r() < Math.min(0.97, p + (c.hinted ? 0.2 : 0)) ? q.ans.list[0][0] : '—' };
+    }
     if (q.kind === 'footballer') {
       const need = level === 'hard' ? 1 : level === 'easy' ? 3 : 2;
       if (c.clues < need) return { type: 'clue' };
