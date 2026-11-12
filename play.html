@@ -6,9 +6,19 @@
   <title>Quiz Night</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="game">
+  <header class="appbar">
+    <div class="wrap appbar-in">
+      <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">QN</span><span>Quiz Night</span></a>
+      <nav class="appnav" aria-label="Quiz">
+        <a href="play.html?quiz=football" data-nav="football">Quizball</a>
+        <a href="play.html?quiz=basketball" data-nav="basketball">Crunch Time</a>
+        <a href="play.html?quiz=geo" data-nav="geo">Γεωγραφία</a>
+      </nav>
+      <span id="roomTag" class="room-tag"></span>
+    </div>
+  </header>
   <main class="wrap">
-    <nav class="topbar"><a href="index.html">← Όλα τα quiz</a><span id="roomTag" class="muted"></span></nav>
     <div id="app"></div>
   </main>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>

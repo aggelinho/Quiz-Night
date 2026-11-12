@@ -8,6 +8,7 @@
   const roomTag = document.getElementById('roomTag');
   document.body.dataset.quiz = quizId;
   document.title = Q.title + ' | Quiz Night';
+  const navOn = document.querySelector(`[data-nav="${quizId}"]`); if (navOn) navOn.classList.add('on');
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 
@@ -18,15 +19,22 @@
   function setupScreen(err) {
     const online = window.Online.enabled;
     const catOpts = quizId === 'geo' ? Object.entries(TOPIC).map(([k, v]) => `<label class="cat"><input type="checkbox" name="cat" value="${k}" checked> ${v.icon} ${esc(v.label)}</label>`).join('') : '';
+    let extra = '';
+    if (Q.format === 'qb' && window.QBFormat) extra = `<ul class="catlist">${Object.values(window.QBFormat.CATS).map((c) => `<li><span class="ic">${c.icon}</span><span><strong>${esc(c.label)}</strong><small>${esc(c.desc)}</small></span></li>`).join('')}</ul>`;
+    if (Q.choices && quizId === 'basketball') extra = `<ul class="catlist">${Q.choices.map((c) => `<li><span class="ic num">${c.pts}</span><span><strong>${esc(c.label)}</strong><small>Ερώτηση ${esc(c.hint)}ς δυσκολίας</small></span></li>`).join('')}</ul>`;
     app.innerHTML = `
+      <section class="page-head">
+        <h1>${esc(Q.title)}</h1>
+        <p class="lede">${esc(Q.subtitle)}</p>
+      </section>
       <section class="setup">
-        <div>
-          <h1>${esc(Q.title)}</h1>
-          <p class="muted">${esc(Q.subtitle)}</p>
-          <p class="rules">${esc(Q.rules)}</p>
-        </div>
-        <form class="panel" id="setupForm">
-          <h3>Πώς θα παίξεις;</h3>
+        <aside class="card rules-card">
+          <h3>Πώς παίζεται</h3>
+          <p>${esc(Q.rules)}</p>
+          ${extra}
+        </aside>
+        <form class="card" id="setupForm">
+          <h3>Νέο παιχνίδι</h3>
           <div class="modes" role="group" aria-label="Τρόπος παιχνιδιού">
             ${modeBtn('cpu', 'Με τον υπολογιστή', 'Ένας παίκτης')}
             ${modeBtn('local', '2 παίκτες', 'Στην ίδια συσκευή')}
@@ -34,15 +42,17 @@
             ${modeBtn('join', 'Online: μπες με κωδικό', 'Σου τον δίνει ο φίλος σου', !online)}
           </div>
           ${online ? '' : '<p class="note">Το online δεν έχει ρυθμιστεί ακόμα (λείπουν τα στοιχεία Firebase).</p>'}
-          <label class="field"><span id="n1label">Το όνομά σου</span><input name="n1" maxlength="20" required value="${esc(store.get('qn-name', ''))}"></label>
-          <label class="field" data-show="local"><span>Όνομα 2ου παίκτη</span><input name="n2" maxlength="20" value="Παίκτης 2"></label>
-          <label class="field" data-show="cpu"><span>Δυσκολία υπολογιστή</span>
-            <select name="level"><option value="easy">Εύκολος</option><option value="medium" selected>Μέτριος</option><option value="hard">Δύσκολος</option></select></label>
-          <label class="field" data-show="join"><span>Κωδικός δωματίου</span><input name="code" maxlength="5" autocapitalize="characters" value="${esc(params.get('room') || '')}"></label>
-          ${quizId === 'geo' ? `<div data-hide="join"><span class="field"><span>Κατηγορίες</span></span><div class="cats">${catOpts}</div>
+          <div class="fields">
+            <label class="field"><span id="n1label">Το όνομά σου</span><input name="n1" maxlength="20" required value="${esc(store.get('qn-name', ''))}"></label>
+            <label class="field" data-show="local"><span>Όνομα 2ου παίκτη</span><input name="n2" maxlength="20" value="Παίκτης 2"></label>
+            <label class="field" data-show="cpu"><span>Δυσκολία υπολογιστή</span>
+              <select name="level"><option value="easy">Εύκολος</option><option value="medium" selected>Μέτριος</option><option value="hard">Δύσκολος</option></select></label>
+            <label class="field" data-show="join"><span>Κωδικός δωματίου</span><input name="code" maxlength="5" autocapitalize="characters" value="${esc(params.get('room') || '')}"></label>
+          </div>
+          ${quizId === 'geo' ? `<div data-hide="join"><span class="field-label">Κατηγορίες</span><div class="cats">${catOpts}</div>
             <label class="field"><span>Γύροι</span><select name="rounds"><option>5</option><option selected>10</option><option>15</option></select></label></div>` : ''}
           ${err ? `<p class="error">${esc(err)}</p>` : ''}
-          <button class="btn" type="submit" id="startBtn">Ξεκίνα</button>
+          <button class="btn btn-lg" type="submit" id="startBtn">Ξεκίνα</button>
         </form>
       </section>`;
     const form = document.getElementById('setupForm');
@@ -93,11 +103,11 @@
   function lobby(room, settings, n1) {
     roomTag.textContent = 'Δωμάτιο ' + room.code;
     const link = `${location.origin}${location.pathname}?quiz=${quizId}&room=${room.code}`;
-    app.innerHTML = `<section class="panel" style="text-align:center;max-width:560px;margin:24px auto">
+    app.innerHTML = `<section class="card lobby">
       <h3>Δώσε τον κωδικό στον αντίπαλό σου</h3>
       <div class="room-code">${room.code}</div>
       <p class="note">ή στείλε του τον σύνδεσμο:</p>
-      <div class="row" style="justify-content:center"><input class="field" style="flex:1;padding:10px" readonly value="${esc(link)}" id="lnk"><button class="btn ghost" id="copy">Αντιγραφή</button></div>
+      <div class="copyrow"><input readonly value="${esc(link)}" id="lnk" aria-label="Σύνδεσμος δωματίου"><button class="btn ghost" id="copy">Αντιγραφή</button></div>
       <p class="waiting">Περιμένουμε αντίπαλο…</p></section>`;
     document.getElementById('copy').onclick = () => { navigator.clipboard && navigator.clipboard.writeText(link); document.getElementById('copy').textContent = 'Αντιγράφηκε'; };
     let started = false;
@@ -132,7 +142,7 @@
     const who = esc(s.players[s.turn].name);
     let body = '';
     if (s.phase === 'choose') {
-      body = `<p class="turn">Σειρά έχει: <strong>${who}</strong>${mine ? '' : ' · περιμένουμε…'}</p>`;
+      body = `<div class="turnbar"><p class="turn">Σειρά: <strong>${who}</strong>${mine ? ' — διάλεξε δυσκολία' : ' — περιμένουμε…'}</p></div>`;
       body += s.format === 'board' ? boardHtml(s, mine) : shotsHtml(mine);
     } else {
       body = questionHtml(s, mine);
@@ -153,12 +163,12 @@
   }
   function scoreboardHtml(s) {
     let sub = '';
-    if (s.format === 'qb') sub = s.phase === 'draft' ? 'Επιλογή κατηγοριών' : s.board ? `${s.board.reduce((n, c) => n + c.cells.filter((x) => x.by === null).length, 0)} ερωτήσεις ακόμα` : '';
+    if (s.format === 'qb') sub = s.phase === 'draft' ? 'Επιλογή κατηγοριών' : s.phase === 'over' ? 'Τέλος' : 'Quizball';
     else if (s.format === 'board') { const left = s.board.reduce((n, c) => n + c.cells.filter((x) => x.by === null).length, 0); sub = `${left} ερωτήσεις ακόμα`; }
     else if (quizId === 'basketball') sub = s.period > s.periods ? `Παράταση ${s.ot}` : `${s.period}η περίοδος`;
     else sub = `Γύρος ${Math.min(Math.floor(s.count / 2) + 1, s.perPeriod)} από ${s.perPeriod}`;
     const plate = (i) => `<div class="plate ${i ? 'right' : ''} ${s.turn === i && s.phase !== 'over' ? 'active' : ''}"><span class="name">${esc(s.players[i].name)}</span><span class="score">${s.players[i].score}</span></div>`;
-    return `<div class="scoreboard">${plate(0)}<div class="clock"><span class="digits" id="clk">${s.phase === 'question' && s.timer ? s.timer : s.format === 'qb' ? '⚽' : '–'}</span><span class="sub">${sub}</span></div>${plate(1)}</div>`;
+    return `<div class="scoreboard">${plate(0)}<div class="clock"><span class="digits" id="clk">${s.timer ? s.timer : 'VS'}</span><span class="sub">${sub}</span></div>${plate(1)}</div>`;
   }
   function boardHtml(s, mine) {
     return `<div class="board">${s.board.map((c, ci) => `<div class="col"><div class="head"><span class="ic">${c.icon}</span>${esc(c.label)}</div>
@@ -191,7 +201,7 @@
       if (q.explain) verdict += `<div class="explain">${esc(q.explain)}</div>`;
     }
     return `<div class="qcard"><div class="timebar"><i id="tbar"></i></div>
-      <div class="qmeta"><span>${cat.icon} ${esc(cat.label)}</span><span>${c.pts} ${c.pts === 1 ? 'πόντος' : 'πόντοι'} · ${esc(s.players[s.turn].name)}</span></div>
+      <div class="qmeta"><span class="tag">${cat.icon} ${esc(cat.label)}</span><span class="qmeta-r"><b>${c.pts} ${c.pts === 1 ? 'πόντος' : 'πόντοι'}</b> για ${esc(s.players[s.turn].name)}</span></div>
       <p class="qtext">${esc(q.text)}</p>${media}<div class="options">${opts}</div>${verdict}
       ${!mine && !rev ? '<p class="note">Απαντά ο αντίπαλος…</p>' : ''}</div>`;
   }
@@ -218,7 +228,7 @@
     const again = session.mode === 'guest' ? '' : '<button class="btn" id="again">Ρεβάνς</button>';
     app.innerHTML = scoreboardHtml(s) + `<section class="final"><h2>${title}</h2>
       <div class="big">${s.players[0].score} – ${s.players[1].score}</div><p class="muted">${acc}</p>
-      <div class="row" style="justify-content:center">${again}<a class="btn ghost" href="play.html?quiz=${quizId}">Νέο παιχνίδι</a></div></section>`;
+      <div class="row center">${again}<a class="btn ghost" href="play.html?quiz=${quizId}">Νέο παιχνίδι</a></div></section>`;
     const b = document.getElementById('again');
     if (b) b.onclick = () => {
       const opts = { mode: session.mode, settings: session.settings, names: s.players.map((p) => p.name), cpuLevel: session.cpuLevel, online: session.online };
